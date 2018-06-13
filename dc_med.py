@@ -10,20 +10,27 @@ top_labels = []
 
 def read_file(filename):
     # 25622 rows  '
-    df = pd.read_csv(filename, usecols=['VMONTH', 'AGE','SEX','DIAG13D','GEN1','GEN2','GEN3','GEN4','GEN5','GEN6'])
+    df = pd.read_csv(filename, usecols=['AGE','SEX','RFV1','RFV2','RFV3','MENTSTAT', 'BLODPRES', 'EKG', 'CARDMON', 'PULSOXIM', 'URINE',
+                                        'PREGTEST', 'HIVSER', 'BLOODALC', 'CBC','CHESTXRY', 'PROC', 'MRI', 'ULTRASND',
+                                        'CATSCAN', 'PROC', 'CPR', 'ENDOINT', 'CPR', 'IVFLUIDS', 'BLADCATH', 'WOUND', 'EYEENT',
+                                        'ORTHOPED', 'OBGYN','DIAG13D','GEN1','GEN2','GEN3','GEN4','GEN5','GEN6'])
     # 25344 rows
     # get diagnosis '465'
     df1 = df.loc[df['DIAG13D'] != '000']
     df1 = df.loc[df['DIAG13D'] == '465']
     all_drugs = pd.concat([df1['GEN1'], df1['GEN2'], df1['GEN3'], df1['GEN4'],
                            df1['GEN5'], df1['GEN6']])
+    df3=pd.get_dummies(df1,columns=['RFV1','RFV2','RFV3'])
     # select top 15 drugs
     dicts_drugs = all_drugs.value_counts()
     dict(dicts_drugs)
     sorted_dicts_drugs = sorted(dicts_drugs.iteritems(), key=lambda x: x[1], reverse=True)
+
     target = []
+
     for each in range(15):
         target.append(sorted_dicts_drugs[each][0])
+
     global top_labels
     top_labels = target
     df2 = pd.DataFrame((np.zeros(len(df1) * len(target), dtype=np.int).reshape(len(df1), len(target))), index=df1.index,
@@ -50,45 +57,52 @@ def read_file(filename):
         if f in target:
             df2.loc[each,f] = 1
 
-    df3 = pd.concat([df1, df2], axis=1)
-    df3 = df3.reset_index(drop=True)
-    df3.to_csv(filename.split('.')[0] + '_multidrug_AH.csv')
+    df4 = pd.concat([df3, df2], axis=1)
+    df4.head()
+    df4 = df4.reset_index(drop=True)
+    df4.to_csv(filename.split('.')[0] + '_multidrug_AH.csv')
+
+
+def add_feature(filename):
+    df = pd.read_csv(filename)
+    col=df.columns
+    list1 = ['etoh','breast','depress','dvs','foot','neuro','pelvic',\
+             'rectal','retinal','skin','subst','bmp','cbc','chlamyd','cmp','creat','bldcx','trtcx','urncx',\
+             'othcx','glucose','gct', 'hgba','heptest','hivtest','hpvdna','cholest','hepatic','pap',\
+             'pregtest','psa','strep','thyroid','urine','vitd','bonedens','catscan','echocard','othultra','mammo','mri','xray','audio',\
+             'biopsy','cardiac','colon','cryo','ekg','eeg','emg','excision','fetal','peak','sigmoid','spiro','tono','tbtest','egd','sigcolon']
+    all_old_disa = [x.upper() for x in list1]
+    for each in all_old_disa:
+        if each not in col:
+            df[each]=2
+
+    df['normalAge']=StandardScaler().fit_transform(df['AGE'].reshape(-1,1))
+    df = df.drop(['Unnamed: 0','GEN2','GEN3','GEN4','GEN5','GEN6','AGE'], axis=1)
+    df.to_csv(filename.split('.')[0] + '_final.csv')
 
 
 def find_freq(filename):
     df = pd.read_csv(filename)
     # scaling to unit variance
-    df = df.drop(['VMONTH','AGE','Unnamed: 0', 'GEN1','GEN2','GEN3','GEN4','GEN5','GEN6','SEX','DIAG13D'], axis=1)
+    df = df.drop(['Unnamed: 0', 'AGE','SEX','MENTSTAT', 'BLODPRES', 'EKG', 'CARDMON', 'PULSOXIM', 'URINE',
+                  'PREGTEST', 'HIVSER', 'BLOODALC', 'CBC','CHESTXRY', 'PROC', 'MRI', 'ULTRASND',
+                  'CATSCAN', 'PROC', 'CPR', 'ENDOINT', 'CPR', 'IVFLUIDS', 'BLADCATH', 'WOUND', 'EYEENT',
+                  'ORTHOPED', 'OBGYN','DIAG13D','GEN1','GEN2','GEN3','GEN4','GEN5','GEN6'], axis=1)
     freq = {}
     sum_elements = len(df)
     for column in df:
         freq[column] = sum(df[column])/sum_elements
     df2 = pd.DataFrame([freq], columns=freq.keys())
+    print(df2)
 
-
-def classify(filename):
-    df = pd.read_csv(filename)
-    df['diag13d'] = df['diag13d'].astype(str)
-    # scaling to unit variance
-    df['normalAge']=StandardScaler().fit_transform(df['age'].reshape(-1,1))
-    df['normalMonth'] = StandardScaler().fit_transform(df['vmonth'].reshape(-1, 1))
-    df=df.drop(['age','vmonth','Index'], axis=1)
-    x=df.ix[:,df.columns!='diag13d']
-    y=df.ix[:, df.columns == 'diag13d']
-    # training test split
-    x_train, x_test, y_train, y_test = train_test_split(x, y, test_size=0.3, random_state=0)
-    lr_model = LogisticRegression(class_weight='balanced',multi_class='ovr')
-    lr_model.fit(x_train, y_train)
-    pred_test = lr_model.predict(x_test.values)
-    print(pred_test)
-    print(classification_report(y_test,pred_test))
 
 
 
 
 def main():
     read_file('/Users/Amelia/Desktop/newfiles/ED00.csv')
-    #find_freq('/Users/Amelia/Desktop/newfiles/ED00_multidrug_AH.csv')
+    add_feature('/Users/Amelia/Desktop/newfiles/ED00_multidrug_AH.csv')
+    # classify('/Users/Amelia/Desktop/newfiles/ED00_multidrug_AH.csv')
 
 if __name__ == '__main__':
         main()
